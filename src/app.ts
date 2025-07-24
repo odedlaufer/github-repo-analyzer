@@ -3,8 +3,6 @@ import express from 'express';
 import repoAnalyzerRoutes from './api/repoAnalyzer.js';
 import { errorHandler } from './utils/errorHandler.js';
 
-
-
 const app = express();
 
 app.use(express.json());

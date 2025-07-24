@@ -1,8 +1,13 @@
 import { Octokit } from '@octokit/rest';
 import dotenv from 'dotenv';
 import { Router, Request, Response } from 'express';
-import { fetchRepoMetadata, analyzeRepoTree, detectTechStack, detectGitHubPages, analyzeCommunityHealth } from '../services/repoAnalyzerService.js';
-
+import {
+  fetchRepoMetadata,
+  analyzeRepoTree,
+  detectTechStack,
+  detectGitHubPages,
+  analyzeCommunityHealth,
+} from '../services/repoAnalyzerService.js';
 
 const router = Router();
 
@@ -22,7 +27,9 @@ router.post('/', async (req: Request, res: Response) => {
   // Extract owner and repo from the URL
   const match = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)(\/)?$/);
   if (!match) {
-    return res.status(400).json({ error: 'Invalid GitHub repository URL format' });
+    return res
+      .status(400)
+      .json({ error: 'Invalid GitHub repository URL format' });
   }
 
   const [, owner, repo] = match;
@@ -32,15 +39,15 @@ router.post('/', async (req: Request, res: Response) => {
     const { structure, tree } = await analyzeRepoTree(owner, repo);
     const techStack = await detectTechStack(owner, repo);
     const githubPagesEnabled = await detectGitHubPages(owner, repo, octokit);
-    const communityHealthScore = analyzeCommunityHealth(tree)
+    const communityHealthScore = analyzeCommunityHealth(tree);
     res.json({
-    analysisReport: {
+      analysisReport: {
         metadata,
         structure,
         techStack,
         githubPages: githubPagesEnabled,
         communityHealthScore,
-    },
+      },
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to analyze repo' });

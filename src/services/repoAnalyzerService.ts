@@ -1,6 +1,6 @@
 import '../config/env';
-import { Octokit } from "@octokit/rest";
-import type { GitHubTreeItem, RepoStructure } from "../types/github";
+import { Octokit } from '@octokit/rest';
+import type { GitHubTreeItem, RepoStructure } from '../types/github';
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
@@ -24,13 +24,16 @@ export async function fetchRepoMetadata(owner: string, repo: string) {
     };
   } catch (error: any) {
     if (error.status === 404) {
-      throw new Error("Repo not found.");
+      throw new Error('Repo not found.');
     }
-    throw new Error("Failed to fetch repo data.");
+    throw new Error('Failed to fetch repo data.');
   }
 }
 
-export async function analyzeRepoTree(owner: string, repo: string): Promise<{ structure: RepoStructure, tree: GitHubTreeItem[] }> {
+export async function analyzeRepoTree(
+  owner: string,
+  repo: string
+): Promise<{ structure: RepoStructure; tree: GitHubTreeItem[] }> {
   try {
     const { data: repoData } = await octokit.repos.get({ owner, repo });
     const branch = repoData.default_branch;
@@ -55,19 +58,23 @@ export async function analyzeRepoTree(owner: string, repo: string): Promise<{ st
       owner,
       repo,
       tree_sha: treeSha,
-      recursive: "1",
+      recursive: '1',
     });
 
-    const structure = await analyzeRepoStructure(treeData.tree as GitHubTreeItem[]);
+    const structure = await analyzeRepoStructure(
+      treeData.tree as GitHubTreeItem[]
+    );
     return { structure, tree: treeData.tree as GitHubTreeItem[] };
-
   } catch (error: any) {
     console.error(error);
     throw new Error(`Failed to analyze repo tree: ${error.message}`);
   }
 }
 
-export async function detectTechStack(owner: string, repo: string): Promise<string[]> {
+export async function detectTechStack(
+  owner: string,
+  repo: string
+): Promise<string[]> {
   const stack: string[] = [];
 
   const knownFiles = [
@@ -116,7 +123,9 @@ export async function detectTechStack(owner: string, repo: string): Promise<stri
   return [...new Set(stack)];
 }
 
-export async function analyzeRepoStructure(tree: GitHubTreeItem[]): Promise<RepoStructure> {
+export async function analyzeRepoStructure(
+  tree: GitHubTreeItem[]
+): Promise<RepoStructure> {
   const keyFiles: string[] = [];
   const keyDirs: string[] = [];
   const securityWarnings: string[] = [];
@@ -175,7 +184,11 @@ export async function analyzeRepoStructure(tree: GitHubTreeItem[]): Promise<Repo
   };
 }
 
-export async function detectGitHubPages(owner: string, repo: string, octokit: Octokit): Promise<boolean> {
+export async function detectGitHubPages(
+  owner: string,
+  repo: string,
+  octokit: Octokit
+): Promise<boolean> {
   try {
     const res = await octokit.request('GET /repos/{owner}/{repo}/pages', {
       owner,
