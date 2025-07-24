@@ -144,7 +144,10 @@ export async function detectTechStack(
         'status' in err &&
         (err as { status: number }).status !== 404
       ) {
-        console.error(`Error checking ${file.name}`, (err as unknown as Error).message);
+        console.error(
+          `Error checking ${file.name}`,
+          (err as unknown as Error).message
+        );
       }
     }
   }

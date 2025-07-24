@@ -51,10 +51,10 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error: unknown) {
     if (error instanceof Error) {
-        res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
     } else {
-        res.status(500).json({ error: 'Failed to analyze repo' });
-}
+      res.status(500).json({ error: 'Failed to analyze repo' });
+    }
   }
 });
 
