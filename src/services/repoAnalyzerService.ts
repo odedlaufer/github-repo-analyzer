@@ -1,26 +1,13 @@
-import '../config/env';
+import '../config/env.js';
 import { Octokit } from '@octokit/rest';
 import type { GitHubTreeItem, RepoStructure } from '../types/github';
+import { AppError } from '../utils/AppError.js';
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
 
-export async function fetchRepoMetadata(
-  owner: string,
-  repo: string
-): Promise<{
-  name: string;
-  full_name: string;
-  description: string | null;
-  stars: number;
-  forks: number;
-  open_issues: number;
-  language: string | null;
-  license: string | null;
-  created_at: string;
-  updated_at: string;
-}> {
+export async function fetchRepoMetadata(owner: string, repo: string) {
   try {
     const { data } = await octokit.repos.get({ owner, repo });
 
@@ -43,18 +30,15 @@ export async function fetchRepoMetadata(
       'status' in error &&
       (error as { status: number }).status === 404
     ) {
-      throw new Error('Repo not found.');
+      throw new AppError('Repository not found.', 404);
     }
 
     console.error('Error fetching repo metadata:', error);
-    throw new Error('Failed to fetch repo data.');
+    throw new AppError('Failed to fetch repository metadata.');
   }
 }
 
-export async function analyzeRepoTree(
-  owner: string,
-  repo: string
-): Promise<{ structure: RepoStructure; tree: GitHubTreeItem[] }> {
+export async function analyzeRepoTree(owner: string, repo: string) {
   try {
     const { data: repoData } = await octokit.repos.get({ owner, repo });
     const branch = repoData.default_branch;
@@ -82,23 +66,16 @@ export async function analyzeRepoTree(
       recursive: '1',
     });
 
-    const structure = await analyzeRepoStructure(
-      treeData.tree as GitHubTreeItem[]
-    );
+    const structure = await analyzeRepoStructure(treeData.tree as GitHubTreeItem[]);
+
     return { structure, tree: treeData.tree as GitHubTreeItem[] };
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(error.message);
-      throw new Error(`Failed to analyze repo tree: ${error.message}`);
-    }
-    throw new Error('Failed to analyze repo tree.');
+    console.error('Error analyzing repo tree:', error);
+    throw new AppError('Failed to analyze repository tree.');
   }
 }
 
-export async function detectTechStack(
-  owner: string,
-  repo: string
-): Promise<string[]> {
+export async function detectTechStack(owner: string, repo: string): Promise<string[]> {
   const stack: string[] = [];
 
   const knownFiles = [
@@ -144,10 +121,7 @@ export async function detectTechStack(
         'status' in err &&
         (err as { status: number }).status !== 404
       ) {
-        console.error(
-          `Error checking ${file.name}`,
-          (err as unknown as Error).message
-        );
+        console.error(`Error checking ${file.name}`, (err as Error).message);
       }
     }
   }
@@ -155,9 +129,64 @@ export async function detectTechStack(
   return [...new Set(stack)];
 }
 
-export async function analyzeRepoStructure(
-  tree: GitHubTreeItem[]
-): Promise<RepoStructure> {
+export async function detectGitHubPages(owner: string, repo: string, octokit: Octokit) {
+  try {
+    const res = await octokit.request('GET /repos/{owner}/{repo}/pages', {
+      owner,
+      repo,
+    });
+    return res.status === 200;
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (error as { status: number }).status === 404
+    ) {
+      return false;
+    }
+
+    console.error('Error checking GitHub Pages:', error);
+    return false;
+  }
+}
+
+export function analyzeCommunityHealth(tree: GitHubTreeItem[]) {
+  const filesToCheck: Record<string, boolean> = {
+    'README.md': false,
+    '.github/CONTRIBUTING.md': false,
+    '.github/CODE_OF_CONDUCT.md': false,
+    '.github/ISSUE_TEMPLATE': false,
+    '.github/PULL_REQUEST_TEMPLATE.md': false,
+  };
+
+  const presentFiles: string[] = [];
+  const missingFiles: string[] = [];
+
+  for (const item of tree) {
+    for (const file in filesToCheck) {
+      if (item.path.startsWith(file)) {
+        filesToCheck[file] = true;
+      }
+    }
+  }
+
+  for (const [file, present] of Object.entries(filesToCheck)) {
+    if (present) {
+      presentFiles.push(file);
+    } else {
+      missingFiles.push(file);
+    }
+  }
+
+  return {
+    communityHealthScore: presentFiles.length,
+    presentFiles,
+    missingFiles,
+  };
+}
+
+export async function analyzeRepoStructure(tree: GitHubTreeItem[]): Promise<RepoStructure> {
   const keyFiles: string[] = [];
   const keyDirs: string[] = [];
   const securityWarnings: string[] = [];
@@ -196,15 +225,9 @@ export async function analyzeRepoStructure(
       (item.path.endsWith('.yml') || item.path.endsWith('.yaml'))
   );
 
-  const ciTools: string[] = [];
-  if (usesGitHubActions) {
-    ciTools.push('GitHub Actions');
-  }
+  const ciTools: string[] = usesGitHubActions ? ['GitHub Actions'] : [];
 
-  const issues: string[] = [];
-  if (maxDepth > 10) {
-    issues.push(`Tree is too deep (${maxDepth} levels)`);
-  }
+  const issues: string[] = maxDepth > 10 ? [`Tree is too deep (${maxDepth} levels)`] : [];
 
   return {
     depth: maxDepth,
@@ -213,74 +236,5 @@ export async function analyzeRepoStructure(
     issues,
     securityWarnings,
     ciTools,
-  };
-}
-
-export async function detectGitHubPages(
-  owner: string,
-  repo: string,
-  octokit: Octokit
-): Promise<boolean> {
-  try {
-    const res = await octokit.request('GET /repos/{owner}/{repo}/pages', {
-      owner,
-      repo,
-    });
-    return res.status === 200;
-  } catch (error: unknown) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      (error as { status: number }).status === 404
-    ) {
-      return false;
-    }
-
-    console.error('Error checking GitHub Pages:', error);
-    return false;
-  }
-}
-
-export function analyzeCommunityHealth(tree: GitHubTreeItem[]): {
-  communityHealthScore: number;
-  presentFiles: string[];
-  missingFiles: string[];
-} {
-  const filesToCheck: Record<string, boolean> = {
-    'README.md': false,
-    '.github/CONTRIBUTING.md': false,
-    '.github/CODE_OF_CONDUCT.md': false,
-    '.github/ISSUE_TEMPLATE': false,
-    '.github/PULL_REQUEST_TEMPLATE.md': false,
-  };
-
-  const presentFiles: string[] = [];
-  const missingFiles: string[] = [];
-
-  for (const item of tree) {
-    const path = item.path;
-
-    for (const file in filesToCheck) {
-      if (path.startsWith(file)) {
-        filesToCheck[file] = true;
-      }
-    }
-  }
-
-  for (const [file, present] of Object.entries(filesToCheck)) {
-    if (present) {
-      presentFiles.push(file);
-    } else {
-      missingFiles.push(file);
-    }
-  }
-
-  const score = presentFiles.length;
-
-  return {
-    communityHealthScore: score,
-    presentFiles,
-    missingFiles,
   };
 }
