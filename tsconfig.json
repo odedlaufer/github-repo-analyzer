@@ -5,6 +5,7 @@
     "moduleResolution": "Node",
     "esModuleInterop": true,
     "moduleDetection": "force",
+    "types": ["jest", "node"],
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,

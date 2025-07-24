@@ -2,3 +2,5 @@
 . "$(git rev-parse --show-toplevel)/node_modules/husky/husky.sh"
 
 npx lint-staged
+npm run typecheck
+npm test
