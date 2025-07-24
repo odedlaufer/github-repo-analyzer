@@ -1,0 +1,6 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+npx detect-secrets-hook --baseline .secrets.baseline || exit 
+
+npx lint-staged
