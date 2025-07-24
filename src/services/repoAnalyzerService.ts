@@ -6,7 +6,21 @@ const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
 
-export async function fetchRepoMetadata(owner: string, repo: string) {
+export async function fetchRepoMetadata(
+  owner: string,
+  repo: string
+): Promise<{
+  name: string;
+  full_name: string;
+  description: string | null;
+  stars: number;
+  forks: number;
+  open_issues: number;
+  language: string | null;
+  license: string | null;
+  created_at: string;
+  updated_at: string;
+}> {
   try {
     const { data } = await octokit.repos.get({ owner, repo });
 
@@ -22,10 +36,17 @@ export async function fetchRepoMetadata(owner: string, repo: string) {
       created_at: data.created_at,
       updated_at: data.updated_at,
     };
-  } catch (error: any) {
-    if (error.status === 404) {
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (error as { status: number }).status === 404
+    ) {
       throw new Error('Repo not found.');
     }
+
+    console.error('Error fetching repo metadata:', error);
     throw new Error('Failed to fetch repo data.');
   }
 }
@@ -65,9 +86,12 @@ export async function analyzeRepoTree(
       treeData.tree as GitHubTreeItem[]
     );
     return { structure, tree: treeData.tree as GitHubTreeItem[] };
-  } catch (error: any) {
-    console.error(error);
-    throw new Error(`Failed to analyze repo tree: ${error.message}`);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(error.message);
+      throw new Error(`Failed to analyze repo tree: ${error.message}`);
+    }
+    throw new Error('Failed to analyze repo tree.');
   }
 }
 
@@ -113,9 +137,14 @@ export async function detectTechStack(
 
         stack.push(file.label);
       }
-    } catch (err: any) {
-      if (err.status !== 404) {
-        console.error(`Error checking ${file.name}`, err.message);
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'status' in err &&
+        (err as { status: number }).status !== 404
+      ) {
+        console.error(`Error checking ${file.name}`, (err as unknown as Error).message);
       }
     }
   }
@@ -195,14 +224,26 @@ export async function detectGitHubPages(
       repo,
     });
     return res.status === 200;
-  } catch (error: any) {
-    if (error.status === 404) return false;
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (error as { status: number }).status === 404
+    ) {
+      return false;
+    }
+
     console.error('Error checking GitHub Pages:', error);
     return false;
   }
 }
 
-export function analyzeCommunityHealth(tree: GitHubTreeItem[]) {
+export function analyzeCommunityHealth(tree: GitHubTreeItem[]): {
+  communityHealthScore: number;
+  presentFiles: string[];
+  missingFiles: string[];
+} {
   const filesToCheck: Record<string, boolean> = {
     'README.md': false,
     '.github/CONTRIBUTING.md': false,

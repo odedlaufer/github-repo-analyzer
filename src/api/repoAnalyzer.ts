@@ -49,8 +49,12 @@ router.post('/', async (req: Request, res: Response) => {
         communityHealthScore,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to analyze repo' });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+        res.status(500).json({ error: error.message });
+    } else {
+        res.status(500).json({ error: 'Failed to analyze repo' });
+}
   }
 });
 
