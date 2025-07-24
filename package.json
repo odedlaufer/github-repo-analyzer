@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "lint-staged": {
-  "*.{ts,js,json}": [
-    "eslint --fix",
-    "prettier --write"
-  ]
-},
+    "*.{ts,js,json}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
   "scripts": {
     "start": "ts-node src/server.ts",
     "dev": "nodemon --watch src --exec tsx src/server.ts",
@@ -33,7 +33,7 @@
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.15",
-    "eslint": "^9.31.0",
+    "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "husky": "^9.1.7",
